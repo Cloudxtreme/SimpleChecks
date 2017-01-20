@@ -1,0 +1,51 @@
+## Configuration Options
+## Files
+ICMP_CONFIG="icmp"
+WEB_CONFIG="web"
+DNS_CONFIG="dns"
+
+
+## ICMP Check
+echo "$(date) [+] Executing ICMP check"
+while read line; do
+	ping -c 1 "$line" 2>&1 >/dev/null &&\
+	echo "$(date) [ICMP] Success $line" ||\
+	echo "$(date) [ICMP] Failure $line"
+done < "$ICMP_CONFIG"
+
+## Web Content Check
+echo "$(date) [+] Executing web content check"
+while read line; do
+	SITE="$(echo $line | awk '{print $1}')"
+	HASH="$(echo $line | awk '{print $2}')"
+	NEW_HASH="$(curl -s \"$SITE\" | md5sum | awk '{print $1}')"
+	
+	if [ "$NEW_HASH" == "$HASH" ]; then
+		echo "$(date) [Web-Content] Success $SITE $HASH"
+	else
+		echo "$(date) [Web-Content] Failure $SITE $HASH"
+	fi
+done < "$WEB_CONFIG"
+
+## Web Availability Check
+echo "$(date) [+] Executing web availability check"
+while read line; do
+	SITE="$(echo $line | awk '{print $1}')"
+	
+	curl -s "$SITE" 2>&1 >/dev/null &&\
+	echo "$(date) [Web-Availability] Success $SITE $HASH" ||\
+	echo "$(date) [Web-Availability] Failure $SITE $HASH"
+done < "$WEB_CONFIG"
+
+## DNS Check
+echo "$(date) [+] Executing DNS dig check"
+while read line; do
+	DNS_SERVER="$(echo $line | cut -d ':' -f 1)"
+	DNS_DOMAIN="$(echo $line | cut -d ':' -f 2)" 
+	
+	dig @"$DNS_SERVER" "$DNS_DOMAIN" |\
+	grep -i -q noerror &&\
+	echo "$(date) [DNS-DIG] Success $DNS_SERVER $DNS_DOMAIN" ||\
+	echo "$(date) [DNS-DIG] Failure $DNS_SERVER $DNS_DOMAIN"
+done < "$DNS_CONFIG"
+
