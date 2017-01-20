@@ -1,11 +1,16 @@
+#!/bin/bash
+
 ## Configuration Options
 CHECK_DELAY=5
+IRC_PORT="6667"
+IRC_CHANNEL="#score"
+IRC_NICK="scorebot"
 
 ## Files
 ICMP_CONFIG="icmp"
 WEB_CONFIG="web"
 DNS_CONFIG="dns"
-
+IRC_CONFIG="irc"
 
 ## ICMP Check
 icmp ()
@@ -62,12 +67,29 @@ dnsdig ()
 	done < "$DNS_CONFIG"
 }
 
+## IRC Check
+irc ()
+{
+	echo "$(date) [+] Executing IRC check"
+	while read IRC_SERVER; do
+		RESULT=$(echo -e "NICK $NICK\nUSER $NICK * 8 $NICK\nJOIN #score\nPRIVMSG #score :Score check passed\nQUIT" | nc $IRC_SERVER $IRC_PORT )
+		regex=":.* [0-9]\{3\} .* "
+		res=$(echo "$RESULT" | grep -o "$regex")
+		if [ "$res" != "" ]; then
+			echo "$(date) [IRC] Success [$IRC_SERVER:$IRC_PORT]"
+		else
+			echo "$(date) [IRC] Failure [$IRC_SERVER:$IRC_PORT]"
+		fi
+	done < "$IRC_CONFIG"
+}
+
 while [ 1 ]; do
-	sleep "$CHECK_DELAY"
-	icmp
+	icmp 
 	webcontent
 	webavail
 	dnsdig
+	irc
+	sleep "$CHECK_DELAY"
 done
 
 
