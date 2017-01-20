@@ -11,6 +11,7 @@ ICMP_CONFIG="icmp"
 WEB_CONFIG="web"
 DNS_CONFIG="dns"
 IRC_CONFIG="irc"
+SMTP_CONFIG="smtp"
 
 ## ICMP Check
 icmp ()
@@ -30,7 +31,7 @@ webcontent ()
 	while read line; do
 		SITE="$(echo $line | awk '{print $1}')"
 		HASH="$(echo $line | awk '{print $2}')"
-		NEW_HASH="$(curl -s \"$SITE\" | md5sum | awk '{print $1}')"
+		NEW_HASH="$(wget -q -O- \"$SITE\" | md5sum | awk '{print $1}')"
 		
 		if [ "$NEW_HASH" == "$HASH" ]; then
 			echo "$(date) [Web-Content] Success $SITE $HASH"
@@ -83,14 +84,29 @@ irc ()
 	done < "$IRC_CONFIG"
 }
 
+#SMTP
+smtp() {
+	while read SERVER; do
+		PORT="25"
+		SENDR="scorebot@rit.ccdc"
+		RECVR="root@rit.ccdc"
+		RESULT=$(echo -e "HELO scorebot\nMAIL FROM: $SENDR\nRCPT TO: $RECVR\nDATA\nSubject: Test Passed\n.\nQUIT" | nc -w 2 $SERVER $PORT 2>/dev/null )
+		res=$(echo "$(echo -e "$RESULT" | awk '{print $1}' | tail -n 3)")
+		if [[ "$(echo $res)" == "354 250 221" || "$res" == "250 221" ]]; then
+			echo "$(date) [SMTP] Success [$SERVER:$PORT]"
+		else
+			echo "$(date) [SMTP] Failed [$SERVER:$PORT]"
+		fi
+	done < "$SMTP_CONFIG"
+}
+
+
 while [ 1 ]; do
 	icmp 
 	webcontent
 	webavail
 	dnsdig
 	irc
+	smtp
 	sleep "$CHECK_DELAY"
 done
-
-
-
